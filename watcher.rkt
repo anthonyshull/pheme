@@ -6,7 +6,7 @@
 (provide make-watcher)
 
 (define (make-url namespace)
-  (format "http://localhost:9999/apis/apps/v1/namespaces/~a/deployments" namespace))
+  (format "http://localhost:8888/apis/apps/v1/namespaces/~a/deployments" namespace))
 
 (define (make-watch-url url resource-version)
   (format "~a?watch=1&resourceVersion=~a" url resource-version))
@@ -16,16 +16,38 @@
                    get-pure-port
                    read-json))
 
-(struct deployments (resource-version items))
+(struct state (resource-version deployments))
 
-(define (get-deployments url)
-  (deployments "" (make-hash)))
+(struct deployment (uid name replicas))
+
+(define (item->deployment item)
+  (let* ([metadata (hash-ref item 'metadata)]
+	 [spec (hash-ref item 'spec)]
+	 [uid (hash-ref metadata 'uid)]
+	 [name (hash-ref metadata 'name)]
+	 [replicas (hash-ref spec 'replicas)])
+    (deployment uid name replicas)))
+
+(define (add-deployment item deployments)
+  (let* ([deployment (item->deployment item)])
+    (hash-set! deployments (deployment-uid deployment) deployment)
+    deployments))
+
+(define (items->deployments items)
+  (foldl add-deployment (make-hash) items))
+
+(define (get-state url)
+  (let* ([doc (get-json url)]
+         [metadata (hash-ref doc 'metadata)]
+         [resource-version (hash-ref metadata 'resourceVersion)]
+         [items (hash-ref doc 'items)])
+    (state resource-version (items->deployments items))))
 
 (define (make-watcher out namespace)
   (let* ([url (make-url namespace)]
-         [deployments (get-deployments url)])
+         [state (get-state url)])
     (thread
      (lambda ()
        (let loop ()
-         ; watch for changes & send old/new to processor
+         (thread-send out (state-resource-version state))
          (loop))))))
