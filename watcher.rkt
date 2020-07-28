@@ -1,7 +1,9 @@
 #lang racket
 
 (require json
-         net/url)
+	 lens
+         net/url
+	 unstable/lens)
 
 (provide make-watcher)
 
@@ -16,38 +18,29 @@
                    get-pure-port
                    read-json))
 
-(struct state (resource-version deployments))
+(define resource-version-lens
+  (hash-ref-nested-lens 'metadata 'resourceVersion))
 
-(struct deployment (uid name replicas))
+(define metadata-lens
+  (lens-thrush (hash-ref-lens 'metadata)
+	       (hash-pick-lens 'name 'uid)))
 
-(define (item->deployment item)
-  (let* ([metadata (hash-ref item 'metadata)]
-	 [spec (hash-ref item 'spec)]
-	 [uid (hash-ref metadata 'uid)]
-	 [name (hash-ref metadata 'name)]
-	 [replicas (hash-ref spec 'replicas)])
-    (deployment uid name replicas)))
+(define status-lens
+  (lens-thrush (hash-ref-lens 'status)
+	       (hash-pick-lens 'replicas)))
 
-(define (add-deployment item deployments)
-  (let* ([deployment (item->deployment item)])
-    (hash-set! deployments (deployment-uid deployment) deployment)
-    deployments))
+(define deployment-lens
+  (lens-join/hash 'metadata metadata-lens
+		  'status status-lens))
 
-(define (items->deployments items)
-  (foldl add-deployment (make-hash) items))
-
-(define (get-state url)
-  (let* ([doc (get-json url)]
-         [metadata (hash-ref doc 'metadata)]
-         [resource-version (hash-ref metadata 'resourceVersion)]
-         [items (hash-ref doc 'items)])
-    (state resource-version (items->deployments items))))
+(define items-lens
+  (lens-thrush (hash-ref-lens 'items)
+	       (map-lens deployment-lens)))
 
 (define (make-watcher out namespace)
-  (let* ([url (make-url namespace)]
-         [state (get-state url)])
+  (let* ()
     (thread
      (lambda ()
        (let loop ()
-         (thread-send out (state-resource-version state))
+         (thread-send out '())
          (loop))))))
