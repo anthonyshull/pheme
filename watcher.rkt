@@ -1,23 +1,23 @@
 #lang racket
 
-(require json
-	 lens
-         net/url
+(require lens
+	 threading
 	 unstable/lens)
+
+(require "utils.rkt")
 
 (provide make-watcher)
 
-(define (make-url namespace)
-  (format "http://localhost:8888/apis/apps/v1/namespaces/~a/deployments" namespace))
+; URLS
+(define deployments-url "http://localhost:8888/apis/apps/v1/namespaces/~a/deployments")
 
-(define (make-watch-url url resource-version)
-  (format "~a?watch=1&resourceVersion=~a" url resource-version))
+(define (namespace-url namespace)
+  (format deployments-url namespace))
 
-(define (get-json url)
-   (call/input-url (string->url url)
-                   get-pure-port
-                   read-json))
+(define (watch-url url resource-version)
+  (string-append url "?watch=1&resourceVersion=" resource-version))
 
+; LENSES
 (define resource-version-lens
   (hash-ref-nested-lens 'metadata 'resourceVersion))
 
@@ -33,14 +33,39 @@
   (lens-join/hash 'metadata metadata-lens
 		  'status status-lens))
 
-(define items-lens
+(define deployments-lens
   (lens-thrush (hash-ref-lens 'items)
 	       (map-lens deployment-lens)))
 
+(define type-lens
+  (hash-ref-lens 'type))
+
+(define object-deployment-lens
+  (lens-thrush (hash-ref-lens 'object)
+	       deployment-lens))
+
+; GET DATA
+(define (get-data namespace)
+  (~> namespace
+      namespace-url
+      get-json))
+
+(define (watch-data namespace resource-version)
+  (~> namespace
+      namespace-url
+      (watch-url resource-version)
+      get-json))
+
+; TRANSFORM DATA
+
+; EXPORTS
 (define (make-watcher out namespace)
-  (let* ()
+  (let* ([data (get-data namespace)]
+	 [resource-version (lens-view resource-version-lens data)]
+	 [deployments (lens-view deployments-lens data)])
     (thread
      (lambda ()
        (let loop ()
+	 (watch-data namespace resource-version)
          (thread-send out '())
          (loop))))))
