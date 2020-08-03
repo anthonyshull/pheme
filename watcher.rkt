@@ -1,6 +1,7 @@
 #lang racket
 
 (require lens
+	 loop
 	 threading
 	 unstable/lens)
 
@@ -9,7 +10,7 @@
 (provide make-watcher)
 
 ; URLS
-(define deployments-url "http://localhost:8888/apis/apps/v1/namespaces/~a/deployments")
+(define deployments-url "http://localhost:5555/apis/apps/v1/namespaces/~a/deployments")
 
 (define (namespace-url namespace)
   (format deployments-url namespace))
@@ -25,12 +26,17 @@
   (lens-thrush (hash-ref-lens 'metadata)
 	       (hash-pick-lens 'name 'uid)))
 
+(define spec-lens
+  (lens-thrush (hash-ref-lens 'spec)
+	       (hash-pick-lens 'replicas)))
+
 (define status-lens
   (lens-thrush (hash-ref-lens 'status)
 	       (hash-pick-lens 'replicas)))
 
 (define deployment-lens
   (lens-join/hash 'metadata metadata-lens
+		  'spec spec-lens
 		  'status status-lens))
 
 (define deployments-lens
@@ -57,15 +63,20 @@
       get-json))
 
 ; TRANSFORM DATA
+(struct state (resource-version deployments))
+(strict update (resource-version deployment))
+
+(define (reducer state update)
+  )
+
+(define (get-first-state namesace)
+  (let ([data (get-data namespace)])
+    (state (lens-view resource-version-lens data)
+	   (lens-view deployments-lens data))))
 
 ; EXPORTS
 (define (make-watcher out namespace)
-  (let* ([data (get-data namespace)]
-	 [resource-version (lens-view resource-version-lens data)]
-	 [deployments (lens-view deployments-lens data)])
-    (thread
-     (lambda ()
-       (let loop ()
-	 (watch-data namespace resource-version)
-         (thread-send out '())
-         (loop))))))
+  (loop watch ([s (get-first-state namespace)])
+	(~>> (watch-data namespace (state-resource-version s))
+	     (reducer s)
+	     (watch))))

@@ -35,7 +35,7 @@ We use [microk8s](https://microk8s.io/).
 
 Create a proxy so that you can access the API externally:
 ```
-%> microk8s.kubectl proxy --port=9999
+%> microk8s.kubectl proxy --port=5555
 ```
 
 Create the namespace and run the deployment manifest:

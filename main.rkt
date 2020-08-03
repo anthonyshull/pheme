@@ -22,5 +22,5 @@
   (let* ([publisher (make-publisher)]
          [processor (make-processor publisher)]
          [watcher (make-watcher processor (namespace))])
-    (ws-serve #:port 8081 (lambda (c _) (thread-send publisher c)))
+    (ws-serve #:port 9999 (lambda (c _) (thread-send publisher c)))
     (printf "Server started...watching deployments in ~s namespace" (namespace))))
