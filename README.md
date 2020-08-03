@@ -8,7 +8,7 @@
 >
 > &mdash; The Aeneid
 
-Pheme is written in [Racket](https://racket-lang.org/).
+Pheme, pronounced *FEE-mee*, is written in [Racket](https://racket-lang.org/).
 
 Installing Racket (Ubuntu):
 ```
