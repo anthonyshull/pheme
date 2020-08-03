@@ -1,4 +1,6 @@
-# PHEME
+![logo](logo.svg)
+
+<hr>
 
 > Between the earth and skies she flies by night,
 > screeching across the darkness, and she never
