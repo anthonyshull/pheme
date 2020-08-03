@@ -8,7 +8,11 @@
 >
 > &mdash; The Aeneid
 
-Pheme, pronounced *FEE-mee*, is written in [Racket](https://racket-lang.org/).
+Pheme, pronounced *FEE-mee*, watches Kubernetes resources and publishes their diffs via websockets. 
+
+## DEVELOP
+
+Pheme is written in [Racket](https://racket-lang.org/).
 
 Installing Racket (Ubuntu):
 ```
@@ -16,8 +20,6 @@ Installing Racket (Ubuntu):
 %> sudo apt update
 %> sudo apt install racket
 ```
-
-## DEVELOP
 
 The best way (for beginners) to write and run Racket is with DrRacket:
 ```
