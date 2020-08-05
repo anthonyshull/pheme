@@ -1,7 +1,6 @@
 #lang racket
 
 (require lens
-	 loop
 	 threading
 	 unstable/lens)
 
@@ -22,6 +21,13 @@
 (define resource-version-lens
   (hash-ref-nested-lens 'metadata 'resourceVersion))
 
+(define object-resource-version-lens
+  (hash-ref-nested-lens 'object 'metadata 'resourceVersion))
+
+(define uid-lens
+  (lens-thrush (hash-ref-lens 'metadata)
+	       (hash-ref-lens 'uid)))
+
 (define metadata-lens
   (lens-thrush (hash-ref-lens 'metadata)
 	       (hash-pick-lens 'name 'uid)))
@@ -32,7 +38,7 @@
 
 (define status-lens
   (lens-thrush (hash-ref-lens 'status)
-	       (hash-pick-lens 'replicas)))
+	       (hash-pick-lens 'replicas 'availableReplicas 'readyReplicas)))
 
 (define deployment-lens
   (lens-join/hash 'metadata metadata-lens
@@ -63,20 +69,38 @@
       get-json))
 
 ; TRANSFORM DATA
-(struct state (resource-version deployments))
-(strict update (resource-version deployment))
+(struct State (resource-version deployments))
+(struct Update (resource-version deployment))
+
+(define (set-uid item hash)
+  (hash-set! hash (lens-view uid-lens item) item)
+  hash)
+
+(define (deployments-hash deployments)
+  (foldl set-uid (make-hash) deployments))
 
 (define (reducer state update)
-  )
+  (State (Update-resource-version update)
+	 (set-uid (Update-deployment update) (State-deployments state))))
 
-(define (get-first-state namesace)
+(define (get-first-state namespace)
   (let ([data (get-data namespace)])
-    (state (lens-view resource-version-lens data)
-	   (lens-view deployments-lens data))))
+    (State (lens-view resource-version-lens data)
+	   (deployments-hash (lens-view deployments-lens data)))))
+
+(define (get-watch-state namespace resource-version)
+  (let ([data (watch-data namespace resource-version)])
+    (Update (lens-view object-resource-version-lens data)
+	    (lens-view object-deployment-lens data))))
 
 ; EXPORTS
 (define (make-watcher out namespace)
-  (loop watch ([s (get-first-state namespace)])
-	(~>> (watch-data namespace (state-resource-version s))
-	     (reducer s)
-	     (watch))))
+  (thread
+   (lambda ()
+     (let loop ([state (get-first-state namespace)])
+       (sleep 1)
+       (displayln (State-deployments state))
+       (~>> (get-watch-state namespace (State-resource-version state))
+	    (reducer state)
+	    ; ((lambda (s) (thread-send out (State-deployments s)) s))
+	    (loop))))))
