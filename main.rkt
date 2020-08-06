@@ -24,4 +24,4 @@
          [watcher (make-watcher processor (namespace))])
     (ws-serve #:port 9999 (lambda (c _) (thread-send publisher c)))
     (printf "Server started...watching deployments in ~s namespace\n" (namespace))
-    (thread-wait processor)))
+    (thread-wait publisher)))

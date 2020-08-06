@@ -12,6 +12,6 @@
        (~>> (thread-receive)
 	    ;; process
 	    ;; send to next thread
-	    ((lambda (s) (displayln s) s))
+	    ;; ((lambda (s) (displayln s) s))
 	    (thread-send out))
        (loop)))))

@@ -1,22 +1,19 @@
 #lang racket
 
 (require json
-         net/rfc6455)
+         net/rfc6455
+	 racket/port)
 
 (provide make-publisher)
 
 (define (make-publisher)
-  (let ([subscribers (list)])
-    (thread
-     (lambda ()
-       (let loop ()
-         (match (thread-receive)
-           ; add subscriber
-           [(? ws-conn? conn)
-            (append subscribers conn)
-            (loop)]
-           ; send message to all subscribers
-           [(? jsexpr? json)
-            (for ([conn subscribers])
-              (ws-send! conn json))
-            (loop)]))))))
+  (thread
+   (lambda ()
+     (let loop ([subscribers (list)])
+       (match (thread-receive)
+         [(? ws-conn? conn)
+	  (loop (cons conn subscribers))]
+         [(? jsexpr? json)
+	  (for-each (lambda (conn) (ws-send! conn (with-output-to-string (lambda () (write-json json)))))
+		    subscribers)
+	  (loop subscribers)])))))
