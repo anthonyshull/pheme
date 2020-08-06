@@ -38,7 +38,7 @@
 
 (define status-lens
   (lens-thrush (hash-ref-lens 'status)
-	       (hash-pick-lens 'replicas 'availableReplicas 'readyReplicas)))
+	       (hash-pick-lens 'readyReplicas)))
 
 (define deployment-lens
   (lens-join/hash 'metadata metadata-lens
@@ -93,14 +93,19 @@
     (Update (lens-view object-resource-version-lens data)
 	    (lens-view object-deployment-lens data))))
 
+(define (send out state update)
+  (let* ([new (Update-deployment update)]
+	 [uid (lens-view uid-lens new)]
+	 [old (hash-ref (State-deployments state) uid)])
+    (thread-send out (list old new))))
+
 ; EXPORTS
 (define (make-watcher out namespace)
   (thread
    (lambda ()
      (let loop ([state (get-first-state namespace)])
-       (sleep 1)
-       (displayln (State-deployments state))
+       (sleep 0.5)
        (~>> (get-watch-state namespace (State-resource-version state))
+	    ((lambda (t o n) (send t o n) n) out state)
 	    (reducer state)
-	    ; ((lambda (s) (thread-send out (State-deployments s)) s))
 	    (loop))))))

@@ -8,7 +8,10 @@
   (thread
    (lambda ()
      (let loop ()
+       (sleep 0.5)
        (~>> (thread-receive)
-            ; compute diff & send to publisher
-            (thread-send out)
-            (loop))))))
+	    ;; process
+	    ;; send to next thread
+	    ((lambda (s) (displayln s) s))
+	    (thread-send out))
+       (loop)))))
